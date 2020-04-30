@@ -1,0 +1,19 @@
+#Permitir Scripts de powershell (ejecutar como admin)
+Set-ExecutionPolicy Unrestricted
+
+
+Get-CIMInstance Win32_processor | select Name, Manufacturer
+$MemoriaTotal = (Get-WmiObject -class "cim_physicalmemory" | Measure-Object -Property Capacity -Sum).Sum
+
+Write-Host 'Memoria Total del Sistema: ' $MemoriaTotal
+
+ps -IncludeUserName | select ProcessName, PM, cpu, id |
+sort cpu -Descending | where-object {$_.PM -ge $MemoriaTotal * 0.05} |
+where-object {$_.UserName -notlike "*\SYSTEM"}
+
+
+
+Get-CIMInstance Win32_physicalmemory | select Capacity
+(systeminfo | Select-String 'Cantidad total de memoria física:').ToString().Split(':')[1].Trim()
+
+
