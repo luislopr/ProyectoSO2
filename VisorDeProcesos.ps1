@@ -1,19 +1,41 @@
 cls
 
+$ms = 800
+$lim=15
+
 $ramkb = 0
 if($isLinux){$ramkb = [int](((vmstat -s)[0]) | grep -o '[[:digit:]]*')}
 if($isWindows){$ramkb = [int]((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
 
-$ms = 500
-$lim=15
+$global:STAMP_BACKUP=$null
+$global:CPU_TIME=$null
+
+Function GET_PROCESSES
+{
+    return Get-Process | Where-Object -Property SI -ne 0 | ForEach-Object{[pscustomobject]@{PID=$_.ID;Name=$_.ProcessName;Mem=$_.WS+$_.PM+$_.NPM;CPU=$_.TotalProcessorTime.Milliseconds}}
+}
+
+Function GET_STAMP
+{
+    $tmp_time = ((Get-Uptime).TotalMilliseconds);
+    $tmp = GET_PROCESSES
+    $RETURN= $tmp | ForEach-Object {$ID=$_.PID;
+		    filter _PAR{if($_.PID -eq $ID){$_}};
+		    [pscustomobject]@{PID=$ID;Name=$_.Name;
+		    Mem=[math]::round((($_.Mem/1024)/$TotalMemory_KILOBYTES)*100.0,3);CPU=  
+			if(($par=($STAMP_BACKUP|_PAR)) -eq $null){0}
+			else{[math]::round(((($_.CPU)-($par[0].CPU))/($tmp_time - $global:CPU_TIME))*100.0,3)};}}
+
+    $global:CPU_TIME = $tmp_time;
+    $STAMP_BACKUP=$tmp;
+    return $RETURN
+}
 
 Function Info
 {
     param($CPUMin,$RAMMin,$TotalMemory_KILOBYTES)
-    $TotalCPUTime=(Get-Uptime | Select-Object -Property TotalSeconds).TotalSeconds; 
-    $STAMP = (Get-Process | Sort-Object -Descending -Property CPU | Where-Object -Property SI -NE 0); 
-    $Final = $STAMP | ForEach-Object { @{}; [pscustomobject]@{PID=$_.ID;Name=$_.ProcessName; Mem=[math]::round(((($_.WS+$_.PM+$_.NPM)/1024)/$TotalMemory_KILOBYTES)*100.0,3);CPU=[math]::round(($_.CPU/$TotalCPUTime)*100.0,3)};} | Where-Object -Property CPU -GT -Value $CPUMin | Where-Object -Property Mem -GT -Value $RAMMin; 
-    return $Final;
+    filter OK {if($_.Mem -GT $RAMMin -and $_.CPU -GT $CPUMin){$_}}
+    return (GET_STAMP | OK | Sort-Object -Descending -Property CPU)
 }
 
 Function Stop
@@ -61,10 +83,13 @@ Write-Host "Presione cualquier tecla para continuar"
 $x = $host.UI.RawUI.ReadKey(“NoEcho,IncludeKeyDown”)
 cls
 
+$global:STAMP_BACKUP=GET_PROCESSES
+$global:CPU_TIME = (Get-Uptime).TotalMilliseconds;
+
 $cond = $true
+$terminado = $false
 while($cond -eq $true)
 {
-
     if ([Console]::KeyAvailable)
     {
         switch($K = ([Console]::ReadKey($false)).Key)
@@ -81,8 +106,8 @@ while($cond -eq $true)
 	{[Console]::ReadKey($false).Key|Out-Null;}
     }
 
-    $DATA = GET_DATA($MODE)
-
+    if($terminado -eq $false)
+    {$DATA = GET_DATA($MODE)}
 
     $liminf=$simsup+$lim
 
