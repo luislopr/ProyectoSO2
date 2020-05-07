@@ -7,7 +7,7 @@ $global:pwshv = ((Get-Host).Version.Major)
 $global:ramkb = 0
 if($isLinux){$global:ramkb = [int](((vmstat -s)[0]) | grep -o '[[:digit:]]*')}
 if($isWindows -or ($global:pwshv -lt 6))
-{$global:ramkb =[int]((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
+{$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
 
 
 $global:STAMP_BACKUP=$null
@@ -99,8 +99,35 @@ Function GET_DATA
     return Out-String -stream -InputObject (Format($Object))
 }
 
+$cond = $true
+$terminado = $false
 $limsup=0
 $MODE=0
+
+Function GET_MODE
+{
+    param($run)
+    do{
+	if ([Console]::KeyAvailable)
+	{
+	    switch($K = ([Console]::ReadKey($false)).Key)
+	    {
+		([ConsoleKey]::UpArrow){$limsup-=4;if($limsup -lt 0){$limsup=0}}
+		([ConsoleKey]::DownArrow){$limsup+=4}
+		([ConsoleKey]::D0){$MODE=0;$run=$false}
+		([ConsoleKey]::D1){$MODE=1;$run=$false}
+		([ConsoleKey]::D2){$MODE=2;$run=$false}
+		([ConsoleKey]::D3){$MODE=3;$run=$false}
+		([ConsoleKey]::D4){$MODE=4;$run=$false;}
+	    }
+	    while([Console]::KeyAvailable)
+	    {[Console]::ReadKey($false).Key|Out-Null;}
+	}
+	Start-Sleep -ms 33
+    }while($run -eq $true)
+    return $MODE;
+}
+
 
 Write-Host "-- Manual --"
 Write-Host "`n"
@@ -115,7 +142,7 @@ Write-Host "`n"
 write-host "Puede presionar los botones en cualquier momento"
 Write-Host "`n"
 Write-Host "Presione cualquier tecla para continuar"
-[void][System.Console]::ReadKey($true)
+$MODE = GET_MODE($true)
 cls
 
 $global:STAMP_BACKUP=GET_PROCESSES
@@ -125,24 +152,10 @@ Write-Host "Preparando..."
 Start-Sleep -m 1000
 cls
 
-$cond = $true
-$terminado = $false
 while($cond -eq $true){
-    if ([Console]::KeyAvailable)
-    {
-        switch($K = ([Console]::ReadKey($false)).Key)
-	{
-	    ([ConsoleKey]::UpArrow){$limsup-=4;if($limsup -lt 0){$limsup=0}}
-	    ([ConsoleKey]::DownArrow){$limsup+=4}
-	    ([ConsoleKey]::D0){$MODE=0}
-	    ([ConsoleKey]::D1){$MODE=1}
-	    ([ConsoleKey]::D2){$MODE=2}
-	    ([ConsoleKey]::D3){$MODE=3}
-	    ([ConsoleKey]::D4){$MODE=4;$cond=$false;}
-	}
-	while([Console]::KeyAvailable)
-	{[Console]::ReadKey($false).Key|Out-Null;}
-    }
+
+    $MODE = GET_MODE($false)
+    if($MODE -eq 4){break;}
 
     if($terminado -eq $false)
     {$DATA = GET_DATA($MODE)}
