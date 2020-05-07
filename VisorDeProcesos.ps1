@@ -1,6 +1,6 @@
 cls
 
-$ms =800
+$ms =600
 $lim=20
 
 $global:pwshv = ((Get-Host).Version.Major)
@@ -101,7 +101,7 @@ Function GET_DATA
 
 $cond = $true
 $terminado = $false
-$limsup=0
+$global:limsup=0
 $MODE=0
 
 Function GET_MODE
@@ -112,8 +112,8 @@ Function GET_MODE
 	{
 	    switch($K = ([Console]::ReadKey($false)).Key)
 	    {
-		([ConsoleKey]::UpArrow){$limsup-=4;if($limsup -lt 0){$limsup=0}}
-		([ConsoleKey]::DownArrow){$limsup+=4}
+		([ConsoleKey]::UpArrow){$global:limsup-=4;if($global:limsup -lt 0){$global:limsup=0}}
+		([ConsoleKey]::DownArrow){$global:limsup+=4}
 		([ConsoleKey]::D0){$MODE=0;$run=$false}
 		([ConsoleKey]::D1){$MODE=1;$run=$false}
 		([ConsoleKey]::D2){$MODE=2;$run=$false}
