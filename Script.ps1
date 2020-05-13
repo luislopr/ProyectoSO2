@@ -125,7 +125,7 @@ Function GET_PROCESSES
         Mem=($_.WS+$_.PM+$_.NPM);
         CPU= ($_.TotalProcessorTime).TotalMilliseconds
     }
-    New-Object TypeName PSObject -prop $tmp;
+    New-Object -TypeName PSObject -prop $tmp;
     }
    
     return $gp
@@ -144,7 +144,7 @@ Function GET_STAMP
             Mem=[math]::round((($_.Mem/1024)/$global:ramkb)*100.0,3);
             CPU=if(($par=($global:STAMP_BACKUP|_PAR)) -eq $null){0}
             else{[math]::round((($_.CPU-($par|select-Object -first 1).CPU)/($tmp_time-$global:CPU_TIME))*100.0,3)};}      
-		    New-Object TypeName PSObject -prop $tmp2;
+		    New-Object -TypeName PSObject -prop $tmp2;
             }
 
     $global:CPU_TIME = $tmp_time;
