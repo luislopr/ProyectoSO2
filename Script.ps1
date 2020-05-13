@@ -88,12 +88,11 @@ $Button.Add_Click({
 #--------------------------------------------------------
 
 
-$ms =4000
+$ms =2000
 $lim=20
 
 $global:pwshv = ((Get-Host).Version.Major)
 $global:ramkb = 0
-if($isLinux){$global:ramkb = [int](((vmstat -s)[0]) | grep -o '[[:digit:]]*')}
 if($isWindows -or ($global:pwshv -lt 6))
 {$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
 
@@ -114,10 +113,8 @@ function GET_UPTIME_MS
 }
 
 Function GET_PROCESSES
-{
-    $gp = Get-Process | Where-OBject {$_.CPU -ne $null}
-    if($global:pwshv -ge 7)
-    {$gp = $gp | Where-Object -Property SI -ne 0}
+{   #process that are not of windows
+    $gp = gps | ? {$_.mainwindowtitle.length -ne 0} 
     
     $gp= $gp | foreach-object{
     $tmp=@{
@@ -172,13 +169,13 @@ Function Stop
 
 
 Function GET_DATA
-{
+{   #Boton selector
     param($mode)
     $Object = $null
-    if($mode -eq 0){$Object = (Info 0.0 0.0)}
-    if($mode -eq 1){$Object = (Info 10.0 0.0)}
-    if($mode -eq 2){$Object = (Info 0.0 8.0)}
-    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0))}
+    if($mode -eq 0){$Object = (Info 0.0 0.0)}  #todos los procesos
+    if($mode -eq 1){$Object = (Info 10.0 0.0)} #procesos cpu con con uso de 10%cpu
+    if($mode -eq 2){$Object = (Info 0.0 8.0)}  #procesos memoria con consumo de 8%ram
+    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0))} #eliminar  los procesos con uso de 10%cpu y 8%ram del computador
     return $Object
 }
 
@@ -193,6 +190,7 @@ $timer = new-OBject System.Windows.Forms.Timer
 $timer.Interval = $ms
 $timer.add_tick({Update})  
 $timer.start()
+
 Function Update()
 {
     $texbox.rows.clear();
