@@ -94,7 +94,7 @@ $lim=20
 $global:ramkb = 0
 if($isLinux){$global:ramkb = [int](((vmstat -s)[0]) | grep -o '[[:digit:]]*')}
 if($isWindows -or ($global:pwshv -lt 6))
-{$global:ramkb =[int]((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
+{$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
 
 $global:pwshv = ((Get-Host).Version.Major)
 
