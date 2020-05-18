@@ -114,13 +114,33 @@ function GET_UPTIME_MS
 
 Function GET_PROCESSES
 {   #process that are not of windows
-    $gp = gps | ? {$_.mainwindowtitle.length -ne 0} 
+    $gp = gps | ? {$_.mainwindowtitle.length -ne 0}
     
-    $gp= $gp | foreach-object{
+    #lista de nombres de procesos de windows que aùn al hacerle filtro no se quitan (windows 8.1 en adelante)
+    $nombres_de_windows =   "ApplicationFrameHost", "MicrosoftEdge", "WindowsInternal", "WinStore.App", "SystemSettings", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp", "MicrosoftEdgeCP", "MicrosoftEdge"
+   
+   #for para pasar por cada proceso
+    foreach( $processes in  $gp)
+    {
+        #for para comparar cada proceso con la lista de nombres
+        foreach( $nombre in  $nombres_de_windows)
+        {
+            #condiciòn que compara si el proceso tiene el nombre de la lista
+            if($processes.ProcessName.contains( $nombre ))
+            {
+                #se quita de la lista el proceso si esta escrito en la lista
+                $gp = $gp | Where-Object {$_.ProcessName -ne $processes.ProcessName}
+            }
+        }   
+    
+    } 
+    
+
+    $gp= $gp | foreach-object{  
     $tmp=@{
         PID=$_.ID;
         Name=$_.ProcessName;
-        Mem=($_.WS+$_.PM+$_.NPM);
+        Mem=($_.WorkingSet*0.40)
         CPU= ($_.TotalProcessorTime).TotalMilliseconds
     }
     New-Object -TypeName PSObject -prop $tmp;
@@ -139,7 +159,7 @@ Function GET_STAMP
          $tmp2=@{
             PID=$_.PID;
             Name=$_.Name;
-            Mem=[math]::round((($_.Mem/1024)/$global:ramkb)*100.0,3);
+            Mem=[math]::round($_.Mem/1MB);
             CPU=if(($par=($global:STAMP_BACKUP|_PAR)) -eq $null){0}
             else{[math]::round((($_.CPU-($par|select-Object -first 1).CPU)/($tmp_time-$global:CPU_TIME))*100.0,3)};}      
 		    New-Object -TypeName PSObject -prop $tmp2;
@@ -150,12 +170,28 @@ Function GET_STAMP
     return $RETURN
 }
 
+#Esta función retorna todos los procesos sin hacer ninguún tipo de filtro
+Function all_processes
+{	
+     return (GET_STAMP | Sort-Object -Descending -Property CPU) 
+}
+
+#Esta función retorna todos los procesos con uso 
+Function cpu_processes
+{
+     return (GET_STAMP | where-object {$_.CPU -gt 10} | Sort-Object -Descending -Property CPU)    
+}
+
+Function memory_processes
+{
+    return  (GET_STAMP | where-object {$_.Mem -gt 8} | Sort-Object -Descending -Property Mem)   
+}
+
 Function Info
 {
     param($CPUMin,$RAMMin)
     filter OK {if($_.Mem -GT $RAMMin -and $_.CPU -GT $CPUMin){$_}}
-    return (GET_STAMP | OK | Sort-Object -Descending -Property CPU)
-    
+    return (GET_STAMP | OK | Sort-Object -Descending -Property CPU)   
 }
 
 Function Stop
@@ -172,14 +208,13 @@ Function GET_DATA
 {   #Boton selector
     param($mode)
     $Object = $null
-    if($mode -eq 0){$Object = (Info 0.0 0.0)}  #todos los procesos
-    if($mode -eq 1){$Object = (Info 10.0 0.0)} #procesos cpu con con uso de 10%cpu
-    if($mode -eq 2){$Object = (Info 0.0 8.0)}  #procesos memoria con consumo de 8%ram
-    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0))} #eliminar  los procesos con uso de 10%cpu y 8%ram del computador
-    return $Object
+    if($mode -eq 0){$Object = (all_processes); return $Object}  #todos los procesos
+    if($mode -eq 1){$Object = (cpu_processes); return $Object} #procesos cpu con con uso de 10%cpu
+    if($mode -eq 2){$Object = (memory_processes); return $Object}  #procesos memoria con consumo de 8%ram
+    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0)); return $Object} #eliminar  los procesos con uso de 10%cpu y 8%ram del computador
 }
 
-$global:STAMP_BACKUP=GET_PROCESSES
+$global:STAMP_BACKUP = GET_PROCESSES
 $global:CPU_TIME = (GET_UPTIME_MS);
 Start-Sleep -m 1000
 
