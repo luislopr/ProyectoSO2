@@ -35,7 +35,7 @@ $texbox.Enabled=$false
 $main_form.Controls.Add($texbox)
 #--------------------------------------------------------
 
-$MODE=0
+$global:mode=0
 
 #Botones 
 
@@ -47,7 +47,7 @@ $Button.Text = "Escanear Procesos"
 $main_form.Controls.Add($Button)
 
 $Button.Add_Click({
-    $MODE=0
+    $global:mode=0
 
 })
 
@@ -59,7 +59,7 @@ $Buttoncpu.Text = "CPU > 10%"
 $main_form.Controls.Add($Buttoncpu)
 
 $Buttoncpu.Add_Click({
-    $MODE=1
+    $global:mode=1
 
 })
 $Buttonmem = New-Object System.Windows.Forms.Button
@@ -70,7 +70,7 @@ $Buttonmem.Text = "RAM > 8%"
 $main_form.Controls.Add($Buttonmem)
 
 $Buttonmem.Add_Click({
-   $MODE=2
+   $global:mode=2
 })
 
 $Button = New-Object System.Windows.Forms.Button
@@ -81,7 +81,7 @@ $Button.Text = "Terminar Procesos"
 $main_form.Controls.Add($Button)
 
 $Button.Add_Click({
-    $MODE=3
+    $global:mode=3
 
 })
 
@@ -94,7 +94,7 @@ $lim=20
 $global:pwshv = ((Get-Host).Version.Major)
 $global:ramkb = 0
 if($isWindows -or ($global:pwshv -lt 6))
-{$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
+{$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1mb}
 
 
 
@@ -117,7 +117,7 @@ Function GET_PROCESSES
     $gp = gps | ? {$_.mainwindowtitle.length -ne 0}
     
     #lista de nombres de procesos de windows que aùn al hacerle filtro no se quitan (windows 8.1 en adelante)
-    $nombres_de_windows =   "ApplicationFrameHost", "MicrosoftEdge", "WindowsInternal", "WinStore.App", "SystemSettings", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp", "MicrosoftEdgeCP", "MicrosoftEdge"
+    $nombres_de_windows =   "cmd", "powershell", "ApplicationFrameHost", "MicrosoftEdge", "WindowsInternal", "WinStore.App", "SystemSettings", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp", "MicrosoftEdgeCP", "MicrosoftEdge"
    
    #for para pasar por cada proceso
     foreach( $processes in  $gp)
@@ -206,12 +206,12 @@ Function Stop
 
 Function GET_DATA
 {   #Boton selector
-    param($mode)
+    param($global:mode)
     $Object = $null
-    if($mode -eq 0){$Object = (all_processes); return $Object}  #todos los procesos
-    if($mode -eq 1){$Object = (cpu_processes); return $Object} #procesos cpu con con uso de 10%cpu
-    if($mode -eq 2){$Object = (memory_processes); return $Object}  #procesos memoria con consumo de 8%ram
-    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0)); return $Object} #eliminar  los procesos con uso de 10%cpu y 8%ram del computador
+    if($global:mode -eq 0){$Object = (all_processes); return $Object}  #todos los procesos
+    if($global:mode -eq 1){$Object = (cpu_processes); return $Object} #procesos cpu con con uso de 10%cpu
+    if($global:mode -eq 2){$Object = (memory_processes); return $Object}  #procesos memoria con consumo de 8%ram
+    if($global:mode -eq 3){$Object = (Stop(Info 10.0 8.0)); return $Object} #eliminar  los procesos con uso de 10%cpu y 8%ram del computador
 }
 
 $global:STAMP_BACKUP = GET_PROCESSES
@@ -229,8 +229,8 @@ $timer.start()
 Function Update()
 {
     $texbox.rows.clear();
-    
-    $DATA = GET_DATA($MODE)
+    write-host "este es el valor de mode:  " + $global:mode
+    $DATA = GET_DATA($global:mode)
     
     $DATA | foreach{if($_.Name -ne $null){$texbox.rows.add($_.PID,$_.Name,$_.Mem,$_.CPU)}}
     
