@@ -2,40 +2,33 @@
 Add-Type -assembly System.Windows.Forms
 $main_form = New-Object System.Windows.Forms.Form
 $main_form.Text ='Visor de Procesos'
-$main_form.Width = 640
+$main_form.Width = 680
 $main_form.Height = 360
 $main_form.AutoSize = $false
 $main_form.FormBorderStyle = 'FIxedDIalog'
 
-
-
 #GUI para procesos
 
 $texbox = New-Object System.Windows.Forms.DataGridView
-$texbox.Width = 610
+$texbox.Width = 650
 $texbox.Height = 270
 $texbox.readonly=$true
 $texbox.Location  = New-Object System.Drawing.Point(10, 40)
+$texbox.SelectionMode = 1;
 $texbox.allowusertoaddrows=$false
-$texbox.ColumnCount = 4
+$texbox.allowusertoresizeRows=$false
 $texbox.ColumnHeadersVisible = $true
 $texbox.RowHeadersVisible = $false
 $texbox.AutoSizeColumnsMode = 'Fill'
 $texbox.ScrollBars = "Vertical"
-
-$texbox.Columns[0].Name="PID"
-$texbox.Columns[1].Name="Nombre"
-$texbox.Columns[2].Name="RAM(%)"
-$texbox.Columns[3].Name="CPU(%)"
-$texbox.CurrentCell=$null
-$texbox.Enabled=$false
 
 
 
 $main_form.Controls.Add($texbox)
 #--------------------------------------------------------
 
-$MODE=0
+$global:MODE=0
+$global:CURPID=0;
 
 #Botones 
 
@@ -47,7 +40,7 @@ $Button.Text = "Escanear Procesos"
 $main_form.Controls.Add($Button)
 
 $Button.Add_Click({
-    $MODE=0
+    $global:MODE=0
 
 })
 
@@ -59,7 +52,7 @@ $Buttoncpu.Text = "CPU > 10%"
 $main_form.Controls.Add($Buttoncpu)
 
 $Buttoncpu.Add_Click({
-    $MODE=1
+    $global:MODE=1
 
 })
 $Buttonmem = New-Object System.Windows.Forms.Button
@@ -70,94 +63,56 @@ $Buttonmem.Text = "RAM > 8%"
 $main_form.Controls.Add($Buttonmem)
 
 $Buttonmem.Add_Click({
-   $MODE=2
+   $global:MODE=2
 })
 
-$Button = New-Object System.Windows.Forms.Button
-$Button.Location = New-Object System.Drawing.Size(400,10)
-$Button.Size = New-Object System.Drawing.Size(120,23)
-$Button.Text = "Terminar Procesos"
+$Buttonbu = New-Object System.Windows.Forms.Button
+$Buttonbu.Location = New-Object System.Drawing.Size(400,10)
+$Buttonbu.Size = New-Object System.Drawing.Size(120,23)
+$Buttonbu.Text = "Terminar Proceso"
 
-$main_form.Controls.Add($Button)
+$main_form.Controls.Add($Buttonbu)
+    
+    
+$Buttonbu.Add_Click({
+    Stop-Process ($texbox.Rows[$texbox.CurrentRow.Index].Cells[1].Value);
+    
+})
 
-$Button.Add_Click({
-    $MODE=3
+$Buttonb = New-Object System.Windows.Forms.Button
+$Buttonb.Location = New-Object System.Drawing.Size(530,10)
+$Buttonb.Size = New-Object System.Drawing.Size(120,23)
+$Buttonb.Text = "Terminar Procesos"
+
+$main_form.Controls.Add($Buttonb)
+
+$Buttonb.Add_Click({
+    $global:MODE=3
 
 })
 
 #--------------------------------------------------------
-
-
-$ms =800
-$lim=20
-
-$global:ramkb = 0
-if($isLinux){$global:ramkb = [int](((vmstat -s)[0]) | grep -o '[[:digit:]]*')}
-if($isWindows -or ($global:pwshv -lt 6))
-{$global:ramkb =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)/1024}
+#(Get-WmiObject -class Win32_PerfFormattedData_PerfProc_Process)
 
 $global:pwshv = ((Get-Host).Version.Major)
+$global:rambyte =((Get-WmiObject Win32_ComputerSystem).totalphysicalmemory)
 
-$global:STAMP_BACKUP=$null
-$global:CPU_TIME=$null
-
-function GET_UPTIME_MS
+function GET_STAMP
 {
-    if($global:pwshv -lt 6)
-    { 
-        $wmi = (get-wmiobject win32_operatingsystem); $wmi =(New-TimeSpan $($wmi.ConvertToDateTime($wmi.lastbootuptime)) $(Get-date)).TotalMilliseconds
-        return $wmi;
-    }
-    else
-    {return (Get-Uptime).TotalMilliseconds}
-}
-
-Function GET_PROCESSES
-{
-    $gp = Get-Process | Where-OBject {$_.CPU -ne $null}
-    if($global:pwshv -ge 7)
-    {$gp = $gp | Where-Object -Property SI -ne 0}
+    $gp = (Get-WmiObject -class Win32_PerfFormattedData_PerfProc_Process | Where-Object{ $_.name -inotmatch '_total|idle'})
     
-    $gp= $gp | foreach-object{
-    $tmp=@{
-        PID=$_.ID;
-        Name=$_.ProcessName;
-        Mem=($_.WS+$_.PM+$_.NPM);
-        CPU= ($_.TotalProcessorTime).TotalMilliseconds
-    }
-    New-Object -TypeName PSObject -prop $tmp;
+    $gp= $gp | foreach-object{  
+        $tmpPID = $_.IDProcess;
+        $tmp=@{
+            PID=$tmpPID;
+            Nombre=(($_.Name).split("#"))[0];
+            RAM= [math]::round((($_.WorkingSetPrivate/$global:rambyte)*100.0),3);
+            CPU= $_.PercentProcessorTime;
+        }
+        New-Object -TypeName PSObject -prop $tmp;
     }
    
     return $gp
-}
-
-Function GET_STAMP
-{
-    $tmp_time = (GET_UPTIME_MS);
-    $tmp = GET_PROCESSES
-    $RETURN= $tmp | ForEach-Object {$ID=$_.PID;
-		    filter _PAR{if($_.PID -eq $ID){$_}};
-               
-         $tmp2=@{
-            PID=$_.PID;
-            Name=$_.Name;
-            Mem=[math]::round((($_.Mem/1024)/$global:ramkb)*100.0,3);
-            CPU=if(($par=($global:STAMP_BACKUP|_PAR)) -eq $null){0}
-            else{[math]::round((($_.CPU-($par|select-Object -first 1).CPU)/($tmp_time-$global:CPU_TIME))*100.0,3)};}      
-		    New-Object -TypeName PSObject -prop $tmp2;
-            }
-
-    $global:CPU_TIME = $tmp_time;
-    $global:STAMP_BACKUP=$tmp;
-    return $RETURN
-}
-
-Function Info
-{
-    param($CPUMin,$RAMMin)
-    filter OK {if($_.Mem -GT $RAMMin -and $_.CPU -GT $CPUMin){$_}}
-    return (GET_STAMP | OK | Sort-Object -Descending -Property CPU)
-    
 }
 
 Function Stop
@@ -170,37 +125,58 @@ Function Stop
 }
 
 
-Function GET_DATA
+Function Info
 {
-    param($mode)
-    $Object = $null
-    if($mode -eq 0){$Object = (Info 0.0 0.0)}
-    if($mode -eq 1){$Object = (Info 10.0 0.0)}
-    if($mode -eq 2){$Object = (Info 0.0 8.0)}
-    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0))}
-    return $Object
+    param($CPUMin,$RAMMin)
+    filter OK {
+        if( $_.RAM -GE $RAMMin -and 
+            $_.CPU -GE $CPUMin -and 
+            (Get-Process -PID $_.PID).Sessionid -ne 0)
+        {$_}
+     }
+    return (GET_STAMP | OK); 
 }
 
-$global:STAMP_BACKUP=GET_PROCESSES
-$global:CPU_TIME = (GET_UPTIME_MS);
-Start-Sleep -m 1000
+Function GET_DATA
+{   #Boton selector
+    param($mode)
+    $Object = $null
+    if($mode -eq 0){$Object = (Info 0.0 0.0); return $Object}  #todos los procesos
+    if($mode -eq 1){$Object = (Info 10.0 0.0); return $Object} #procesos cpu con con uso de 10%cpu
+    if($mode -eq 2){$Object = (Info 0.0 8.0); return $Object}  #procesos memoria con consumo de 8%ram
+    if($mode -eq 3){$Object = (Stop(Info 10.0 8.0)); return $Object} #eliminar los procesos con uso de 10%cpu y 8%ram del computador
+}
 
-$cond = $true
-$terminado = $false
+
+$global:currentIndex=0;
+
+Start-Sleep -m 500
 
 $timer = new-OBject System.Windows.Forms.Timer
-$timer.Interval = $ms
+$timer.Interval = 600
 $timer.add_tick({Update})  
 $timer.start()
+
+$DATA = GET_DATA($global:MODE)
+
+
 Function Update()
 {
-    $texbox.rows.clear();
+ $DATA = GET_DATA($global:MODE)
+ 
+try{
+    $global:currentIndex = $texbox.CurrentRow.Index;
+    $currentCol = $texbox.CurrentCol.Index;
+    $currentRow = $texbox.FirstDisplayedScrollingRowIndex;
     
-    $DATA = GET_DATA($MODE)
+    $texbox.datasource = [collections.arraylist]$DATA;
     
-    $DATA | foreach{if($_.Name -ne $null){$texbox.rows.add($_.PID,$_.Name,$_.Mem,$_.CPU)}}
+    $texbox.CurrentCell = $texbox.Rows[$global:currentIndex].Cells[0];
+    $texbox.FirstDisplayedScrollingRowIndex = $currentRow;
     
-    $texbox.clearselection();
+    $texbox.update();
+    }
+    catch{}  
     
 }
 
