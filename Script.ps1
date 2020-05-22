@@ -92,7 +92,7 @@ $Buttonb.Add_Click({
 })
 
 #--------------------------------------------------------
-$nombres_de_windows=  "cmd",  "ApplicationFrameHost", "MicrosoftEdge", "WindowsInternal", "WinStore.App", "SystemSettings", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp", "MicrosoftEdgeCP", "MicrosoftEdge"
+$nombres_de_windows=  "powershell", "cmd",  "ApplicationFrameHost", "MicrosoftEdge", "WindowsInternal", "WinStore.App", "SystemSettings", "WindowsInternal.ComposableShell.Experiences.TextInput.InputApp", "MicrosoftEdgeCP", "MicrosoftEdge"
 $global:ArrayList = New-Object System.Collections.ArrayList
 
 $global:pwshv = ((Get-Host).Version.Major)
