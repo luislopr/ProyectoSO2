@@ -158,7 +158,7 @@ $global:currentIndex=0;
 Start-Sleep -m 500
 
 $timer = new-OBject System.Windows.Forms.Timer
-$timer.Interval = 600
+$timer.Interval = 2000
 $timer.add_tick({Update})  
 $timer.start()
 
