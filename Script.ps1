@@ -136,7 +136,7 @@ Function Info
 {
     param($CPUMin,$RAMMin)
     filter OK {
-        if( $_.RAM -gt $RAMMin -and $_.CPU -gt $CPUMin)
+        if( $_.RAM -ge $RAMMin -and $_.CPU -ge $CPUMin)
             {$_}
      }
     return (GET_STAMP | OK);
