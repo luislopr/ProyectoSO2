@@ -1,1 +1,0 @@
-powershell ./VisorDeProcesos.ps1
